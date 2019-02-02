@@ -25,10 +25,16 @@ ini_set("display_errors", 1);
     function isValidHeader($jwt, $key){
 
         try{
-            $data = getDataByJWToken($jwt, $key);
+            if($jwt==null)
+            {
+                return;
+            }
+            else
+            {
+                $data = getDataByJWToken($jwt, $key);
            //var_dump($data);
-
             return isValidUser($data);
+            }
         }catch(Exception $e){
             return false;
         }
@@ -96,7 +102,12 @@ ini_set("display_errors", 1);
 //    print_r($decoded);
     }
 
-    function getDataByJWToken($jwt, $secretKey){
+    function getDataByJWToken($jwt, $secretKey)
+    {
+        if($jwt==null)
+        {
+            return;
+        }
         $decoded = JWT::decode($jwt, $secretKey, array('HS256'));
    // print_r($decoded);
         return $decoded;
@@ -155,7 +166,7 @@ ini_set("display_errors", 1);
     function addAccessLogs($accessLogs, $body){
 
         if(isset($_SERVER['HTTP_X_ACCESS_TOKEN']))
-            $logData["JWT"] = getDataByJWToken($_SERVER['HTTP_X_ACCESS_TOKEN'], JWT_SECRET_KEY);
+            $logData["JWT"] = getDataByJWToken($_SERVER['HTTP_X_ACCESS_TOKEN'], 'JWT_SECRET_KEY');
         $logData["GET"] = $_GET;
         $logData["BODY"] = $body;
         $logData["REQUEST_METHOD"] = $_SERVER["REQUEST_METHOD"];

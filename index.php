@@ -18,17 +18,19 @@ $dispatcher = FastRoute\simpleDispatcher(function(FastRoute\RouteCollector $r) {
     //Main Server API
     $r->addRoute('GET', '/', 'index');
     $r->addRoute('GET', '/timeline', 'timeline');
-    $r->addRoute('GET', '/users', 'users');
     $r->addRoute('GET', '/view/{questionNumber:\d+}','view');
     $r->addRoute('GET', '/following_list','following_list');
+    $r->addRoute('GET', '/follower_list','follower_list');
     $r->addRoute('POST','/User','User');
     $r->addRoute('POST','/login','login');
     $r->addRoute('POST','/write','write');
     $r->addRoute('POST','/comment','comment');
     $r->addRoute('POST','/recomment','recomment');
     $r->addRoute('POST','/following','following');
-    $r->addRoute('PUT','/removeUser','removeUser');
-    $r->addRoute('PUT','/reviveUser','reviveUser');
+    $r->addRoute('PUT','/myprofile','myprofile');
+//    $r->addRoute('GET', '/users', 'users');
+//    $r->addRoute('PUT','/removeUser','removeUser');
+//    $r->addRoute('PUT','/reviveUser','reviveUser');
 //    $r->addRoute('GET', '/logs/error', 'ERROR_LOGS');
 //    $r->addRoute('GET', '/logs/access', 'ACCESS_LOGS');
 

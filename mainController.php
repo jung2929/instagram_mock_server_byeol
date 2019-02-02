@@ -5,7 +5,7 @@ ini_set("display_errors", 1);
     $res = (Object)Array();
     header('Content-Type: json');
     $req = json_decode(file_get_contents("php://input"));
-    $jwt=$_SERVER['HTTP_X_ACCESS_TOKEN'];
+//    $jwt=$_SERVER['HTTP_X_ACCESS_TOKEN'];
 
     try {
         addAccessLogs($accessLogs, $req);
@@ -30,11 +30,12 @@ ini_set("display_errors", 1);
                 break;
             /*
             * API No. 0
-            * API Name : 테스트 API
-            * 마지막 수정 날짜 : 18.08.16
+            * API Name : 피드 조회 API
+            * 마지막 수정 날짜 : 18.02.01
             */
             case "timeline":
                 http_response_code(200);
+                $jwt=$_SERVER['HTTP_X_ACCESS_TOKEN'];
                 $res->result = postlist();
                 $res->code = 100;
                 $res->message = "성공";
@@ -42,27 +43,60 @@ ini_set("display_errors", 1);
                 echo json_encode($res, JSON_NUMERIC_CHECK);
 		        break;
 
+            /*
+            * API No. 1
+            * API Name : 팔로잉 리스트 API
+            * 마지막 수정 날짜 : 18.02.01
+            */
 
-            case "users":
+            case "followingList":
                 http_response_code(200);
-                $res->result = users();
-                $res->code = 100;
-                $res->message = "성공";
-
+                $jwt=$_SERVER['HTTP_X_ACCESS_TOKEN'];
+                $valid=isValidHeader($jwt,'JWT_SECRET_KEY');
+                
+                if($valid!=null)
+                {
+                    $data=getDataByJWToken($jwt,'JWT_SECRET_KEY');
+                    $res->result=following_list($data->user_id);
+                    if($res->result!=null)
+                    {
+                        $res->code=100;
+                        $res->message="불러오기 성공";
+                    }
+                    else
+                    {
+                        $res->result=false;
+                        $res->code=400;
+                        $res->message="팔로잉 없음";
+                    }
+                }
+                else
+                {
+                    $res->result=false;
+                    $res->code=401;
+                    $res->message="로그인 필요";
+                }
                 echo json_encode($res, JSON_NUMERIC_CHECK);
                 break;
 
 
-            case "following_list":
-                http_response_code(200);
-                $valid=isValidHeader($jwt,JWT_SECRET_KEY);
-                $data=getDataByJWToken($jwt,JWT_SECRET_KEY);
-                
 
+
+            /*
+            * API No. 2
+            * API Name : 팔로워 리스트 API
+            * 마지막 수정 날짜 : 18.02.01
+            */
+                case "follower_list":
+                http_response_code(200);
+                $jwt=$_SERVER['HTTP_X_ACCESS_TOKEN'];
+                $valid=isValidHeader($jwt,'JWT_SECRET_KEY');
+                
+                
                 if($valid)
                 {
-                    $res->result=following_list($data);
-
+                    $data=getDataByJWToken($jwt,'JWT_SECRET_KEY');
+                    $res->result=followerList($data->user_id);
                     if($res->result!=null)
                     {
                         $res->code=100;
@@ -84,9 +118,15 @@ ini_set("display_errors", 1);
                 echo json_encode($res, JSON_NUMERIC_CHECK);
                 break;
 
+            /*
+            * API No. 3
+            * API Name :  API
+            * 마지막 수정 날짜 : 18.02.01
+            */
 
 	        case "view":
-		    http_response_code(200);
+            http_response_code(200);
+            $jwt=$_SERVER['HTTP_X_ACCESS_TOKEN'];
 		    $questionNumber=$vars["questionNumber"];
             $res->comment = view_comment($questionNumber);
             $res->recomment = view_recomment($questionNumber);
@@ -104,28 +144,46 @@ ini_set("display_errors", 1);
             }
             echo json_encode($res, JSON_NUMERIC_CHECK);
                 break;
+            
+            
+            /*
+            * API No. 4
+            * API Name : 로그인 API
+            * 마지막 수정 날짜 : 18.02.01
+            */
 
 
-
-	    case "login": //이메일로 로그인하는거 추가해야함!!
+	    case "login": 
 		    http_response_code(200);
             $valid = isValidUser($req);
 
             $id=$req->user_id;
             $password=$req->user_password;
-            if($valid!=false)
+          
+            if($valid)
            { 
-                $res->jwt=getJWToken($id,$password,JWT_SECRET_KEY);
+                $res->result=getJWToken($id,$password,'JWT_SECRET_KEY');
+                $res->code=100;
                 $res->message = "로그인에 성공하였습니다";
+               
            }
            else
             {
                 $res->result=false;
+                $res->code=400;
                 $res->message="로그인에 실패했습니다";
             }
             echo json_encode($res, JSON_NUMERIC_CHECK);
-        break;
+            break;
         
+
+
+             /*
+            * API No. 5
+            * API Name : 회원가입 API
+            * 마지막 수정 날짜 : 18.02.01
+            */
+
         case "User":
             http_response_code(200);
 
@@ -133,9 +191,9 @@ ini_set("display_errors", 1);
             $password=$req->password;
             $name=$req->name;
             $email=$req->email;
-            $phone_number=$req->phone_number;
+            $introduction=$req->introduction;
 
-            if($id==NULL||$name==NULL||$password==NULL)
+            if($id==NULL||$name==NULL||$password==NULL||$email==null)
             {
                 $res->result=false;
                 $res->code=400;
@@ -146,20 +204,18 @@ ini_set("display_errors", 1);
                 $res->result=false;
                 $res->code=401;
                $res->message="아이디는 4자리 이상 15자리 이하여야합니다";
-               break;
             }
             else if(strlen($password)<8||strlen($password)>20)
             {
                 $res->result=false;
                 $res->code=402;
-               $res->message="비밀번호는 8자리이상 20자리 이하여야합니다";
-               break;
+                $res->message="비밀번호는 8자리이상 20자리 이하여야합니다";
             }
-            else if($email==null && $phone_number==null)
+            else if(!filter_var($email, FILTER_VALIDATE_EMAIL))
             {
-               $res->result=false;
-               $res->code=403;
-               $res->message="이메일 또는 폰번호 중 적어도 하나는 입력해야합니다";
+                $res->result=false;
+                $res->code=403;
+                $res->message="이메일 형식이 잘못되었습니다";
             }
             else
             {
@@ -179,35 +235,57 @@ ini_set("display_errors", 1);
             break;
 
 
-
+            /*
+            * API No. 6
+            * API Name : 팔로잉 API
+            * 마지막 수정 날짜 : 18.02.01
+            */
 
         case "following":
             http_response_code(200);
-            $valid=isValidHeader($jwt,JWT_SECRET_KEY);
-            $data=getDataByJWToken($jwt,JWT_SECRET_KEY);
-            $my_id=$req->user_id;
-            $friend_id=$req->friend_id;
+
+            $jwt=$_SERVER['HTTP_X_ACCESS_TOKEN'];
+
+            $valid=isValidHeader($jwt,'JWT_SECRET_KEY');
+            
             if($valid!=false)
             {
+                $data=getDataByJWToken($jwt,'JWT_SECRET_KEY');
+                $my_id=get_id($data->user_id);
+                $friend_id=$req->friend_id;
                 $res->result=following($my_id,$friend_id);
-                $res->code=100;
-                $res->message="팔로우 성공";
+                
+                if($res->result!=false)
+                {
+                    $res->code=100;
+                    $res->message="팔로우 성공";
+                }
+                else
+                {
+                    $res->result=false;
+                    $res->code=400;
+                    $res->message="팔로우 실패";
+                }
+
             }
             else
             {
                 $res->result=false;
-                $res->code=400;
-                $res->message="로그인을 먼저 해주세요";
-            }
+                $res->code=401;
+                $res->message="로그인 필요";
+                }
             echo json_encode($res,JSON_NUMERIC_CHECK);
             break;
             
-
-
+            /*
+            * API No. 7
+            * API Name : 게시글 작성 API
+            * 마지막 수정 날짜 : 18.02.01
+            */
 
         case "write":
             http_response_code(200);
-           
+            $jwt=$_SERVER['HTTP_X_ACCESS_TOKEN'];
             $valid=isValidHeader($jwt,JWT_SECRET_KEY);
             if($valid!=false)
             {
@@ -247,9 +325,16 @@ ini_set("display_errors", 1);
             echo json_encode($res,JSON_NUMERIC_CHECK);
             break;
 
-            case "comment":
-            http_response_code(200);
 
+
+             /*
+            * API No. 8
+            * API Name : 댓글작성 API
+            * 마지막 수정 날짜 : 18.02.01
+            */
+        case "comment":
+            http_response_code(200);
+            $jwt=$_SERVER['HTTP_X_ACCESS_TOKEN'];
             $valid=isValidHeader($jwt,JWT_SECRET_KEY);
           
             if($valid!=false)
@@ -293,8 +378,14 @@ ini_set("display_errors", 1);
             echo json_encode($res,JSON_NUMERIC_CHECK);
             break;
 
+             /*
+            * API No. 9
+            * API Name : 대댓글작성 API
+            * 마지막 수정 날짜 : 18.02.01
+            */
         case "recomment":
             http_response_code(200);
+            $jwt=$_SERVER['HTTP_X_ACCESS_TOKEN'];
             $valid=isValidHeader($jwt,JWT_SECRET_KEY);
           
            
@@ -340,8 +431,46 @@ ini_set("display_errors", 1);
             echo json_encode($res,JSON_NUMERIC_CHECK);
             break;
 
+            /*
+            * API No. 10
+            * API Name : 프로필조회 API
+            * 마지막 수정 날짜 : 18.02.01
+            */
 
-        case "removeUser":
+            case "myprofile":
+                http_response_code(200);
+                $jwt=$_SERVER['HTTP_X_ACCESS_TOKEN'];
+                $valid=isValidHeader($jwt,JWT_SECRET_KEY);
+                
+
+                if($valid!=null)
+                {
+                    $data=getDataByJWToken($jwt,JWT_SECRET_KEY);
+                    $res->result=profile_fix($data,$req);
+
+                    if($res->result!=null)
+                    {
+                        $res->code=100;
+                        $res->message="수정 성공";
+                    }
+                    else
+                    {
+                        $res->result=false;
+                        $res->code=400;
+                        $res->message="수정 실패";
+                    }
+                }
+                else
+                {
+                    $res->result=false;
+                    $res->code=401;
+                    $res->message="로그인 필요";
+                }
+                echo json_encode($res, JSON_NUMERIC_CHECK);
+                break;
+        
+
+/*        case "removeUser":
                 http_response_code(200);
                 $valid=isValidHeader($jwt,JWT_SECRET_KEY);
 
@@ -397,7 +526,18 @@ ini_set("display_errors", 1);
                 }
                 echo json_encode($res,JSON_NUMERIC_CHECK);
                 break;
-                }
+
+                case "users":
+                http_response_code(200);
+                $res->result = users();
+                $res->code = 100;
+                $res->message = "성공";
+
+                echo json_encode($res, JSON_NUMERIC_CHECK);
+                break;
+                */
+
+            }
 
     }
     catch (Exception $e) 

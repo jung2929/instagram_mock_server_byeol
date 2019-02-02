@@ -1,7 +1,6 @@
 <?php
 error_reporting(E_ALL);
 ini_set("display_errors", 1);
-
     function postlist()
     {
         $pdo = pdoSqlConnect();
@@ -16,53 +15,22 @@ ini_set("display_errors", 1);
 
         return $res;
     }
-    function users()
+    function followingCheck($user_id,$friend_id)
     {
-        $pdo = pdoSqlConnect();
-        $query = "SELECT * FROM user WHERE current='0'";
-
+        $pdo=pdosqlConnect();
+        $query="select exists(select * from following where my_id = ? and following = ? )as result";
         $st = $pdo->prepare($query);
-        $st->execute();
-        $st->setFetchMode(PDO::FETCH_ASSOC);
+        $st->execute([$user_id,$friend_id]);
+	    $st->setFetchMode(PDO::FETCH_ASSOC);
         $res = $st->fetchAll();
-
-        $st=null;$pdo = null;
-
-        return $res;
-    }
-    function follower($my_id,$friend_id) //?”ë¡œ?‰ì— ?†ëŠ”? ë©´ ?”ë¡œ???”ì²­
-    {
-        $pdo=pdoSqlConnect();
-        $query="insert into follower (my_id,follower) values('$friend_id','$my_id')";
-        echo $query;
-        $st=$pdo->prepare($query);
-        $st->execute();
         $st=null;$pdo=null;
+    
+	    return intval($res[0]["result"]);
     }
-    function following($my_id,$friend_id) //?”ë¡œ?Œì— ?ˆëŠ”? ë©´ ë§žíŒ”ë¡œìš°
+    function get_id($email)
     {
         $pdo=pdoSqlConnect();
-        $query="insert into following (my_id,following) values('$my_id','$friend_id')";
-        echo $query;
-        $st=$pdo->prepare($query);
-        $st->execute();
-        $res=$st;
-        $st=null;$pdo=null;
-
-        if($res!=null)
-        {
-            follower($my_id,$friend_id);
-            return true;
-        }
-        else
-        {
-            return false;
-        }
-    }
-    function get_id($phone)
-    {
-        $pdo=pdoSqlConnect();
-        $query="select user_id from user where phone='$phone'";
+        $query="select user_id from user where email= '$email' ";
         $st = $pdo->prepare($query);
         $st->execute();
         $st->setFetchMode(PDO::FETCH_ASSOC);
@@ -71,15 +39,40 @@ ini_set("display_errors", 1);
         
         return $res[0]['user_id'];
     }
-    function following_list($data)
+    function following($my_id,$friend_id)
+    {
+        if(!followingCheck($my_id,$friend_id))
+        {
+            $pdo=pdoSqlConnect();
+            $query="insert into following (my_id,following) values(?,?)";
+            $st=$pdo->prepare($query);
+            $st->execute([$my_id,$friend_id]);
+            $res=$st;
+            $st=null;$pdo=null;
+
+            if($res!=null)
+            {
+                return true;
+            }
+            else
+            {
+                return false;
+            }
+        }
+        else
+        {
+            return false;    
+        }
+        
+    }
+    
+    function followingList($data)
     {
         $pdo=pdoSqlConnect();
-        $phone= $data->user_id;
-        $user_id=get_id($phone);
-        $query="select following from following where my_id='$user_id'";
-        echo $query;
+        $user_id=get_id($data);
+        $query="select following from following where my_id= ?";
         $st=$pdo->prepare($query);
-        $st->execute();
+        $st->execute([$user_id]);
         $st->setFetchMode(PDO::FETCH_ASSOC);
         $res=$st->fetchAll();
 
@@ -87,18 +80,30 @@ ini_set("display_errors", 1);
 
         return $res;
     }
+    function followerList($data)
+    {
+        $pdo=pdoSqlConnect();
+        $user_id=get_id($data);
+        echo $user_id;
+        $query="select my_id from following where following= ? ";
+        $st=$pdo->prepare($query);
+        $st->execute([$user_id]);
+        $st->setFetchMode(PDO::FETCH_ASSOC);
+        $res=$st->fetchAll();
+        $st=null;$pdo = null;
+        return $res;
+    }
     function isValidUser($user)
     {
-	    $pdo=pdosqlConnect();
-	    $query="SELECT EXISTS(SELECT * FROM user WHERE phone = ? AND user_password = ?) as result";
+        $pdo=pdosqlConnect();
+        $query="SELECT EXISTS(SELECT * FROM user WHERE email = ? AND user_password = ?) as result";
         $st = $pdo->prepare($query);
-	    $st->execute([$user->user_id, $user->user_password]);
-	    $st->setFetchMode(PDO::FETCH_ASSOC);
+        $st->execute([$user->user_id, $user->user_password]);
+        $st->setFetchMode(PDO::FETCH_ASSOC);
         $res=$st->fetchAll();
-        
         $st=null; $pdo=null;
-        echo $res[0]["result"];
-	    return intval($res[0]["result"]);	
+	    return intval($res[0]["result"]);
+       
     }
     function view_comment($questionNumber)
     {
@@ -127,9 +132,9 @@ ini_set("display_errors", 1);
     function IDcheck($id)
     {
         $pdo=pdosqlConnect();
-	    $query="select * from user where user_id='$id'";
+	    $query="select * from user where user_id= ? ";
 	    $st = $pdo->prepare($query);
-	    $st->execute();
+	    $st->execute([$id]);
 	    $st->setFetchMode(PDO::FETCH_ASSOC);
 	    $res = $st->fetchAll();
         $st=null;$pdo = null;
@@ -143,48 +148,11 @@ ini_set("display_errors", 1);
             return true;
         }
     }
-    function user_PWcheck($userID,$password)
-    {
-        $pdo=pdosqlConnect();
-	    $query="select * from user where userID='$userID' and user_password='$password'";
-	    $st = $pdo->prepare($query);
-	    $st->execute();
-	    $st->setFetchMode(PDO::FETCH_ASSOC);
-	    $res = $st->fetchAll();
-        $st=null;$pdo = null;
-
-        if($res !=null)
-        {
-            return false;
-        }
-        else
-        {
-            return true;
-        }
-    }
+  
     function POSTcheck($question_number)
     {
         $pdo=pdosqlConnect();
 	    $query="select * from QnA where question_number='$question_number'";
-	    $st = $pdo->prepare($query);
-	    $st->execute();
-	    $st->setFetchMode(PDO::FETCH_ASSOC);
-	    $res = $st->fetchAll();
-        $st=null;$pdo = null;
-
-        if($res !=null)
-        {
-            return true;
-        }
-        else
-        {
-            return false;
-        }
-    }
-    function CURRENTcheck($userID)
-    {
-        $pdo=pdosqlConnect();
-	    $query="select * from user where userID='$userID' and current=1";
 	    $st = $pdo->prepare($query);
 	    $st->execute();
 	    $st->setFetchMode(PDO::FETCH_ASSOC);
@@ -208,7 +176,7 @@ ini_set("display_errors", 1);
         $password=$req->password;
         $name=$req->name;
         $email=$req->email;
-        $phone=$req->phone_number;
+        $introduction=$req->introduction;
         
         $check=IDcheck($id);
 
@@ -218,11 +186,10 @@ ini_set("display_errors", 1);
         }
         else
         {
-                $sql="insert into user (user_id,user_password,name,email,phone) values ('$id','$password','$name','$email','$phone')";
+                $sql="insert into user (user_id,user_password,name,email,introduction) values ('$id','$password','$name','$email','$introduction')";
                 $sr=$pdo->prepare($sql);
                 $sr->execute();
                 $sr=null;$pdo = null;
-
                 return true;
         }
     }
@@ -322,6 +289,47 @@ ini_set("display_errors", 1);
             return "NO_POST";
         }
     }
+    
+    function user_PWcheck($userID,$password)
+    {
+        $pdo=pdosqlConnect();
+	    $query="select * from user where userID='$userID' and user_password='$password'";
+	    $st = $pdo->prepare($query);
+	    $st->execute();
+	    $st->setFetchMode(PDO::FETCH_ASSOC);
+	    $res = $st->fetchAll();
+        $st=null;$pdo = null;
+
+        if($res !=null)
+        {
+            return false;
+        }
+        else
+        {
+            return true;
+        }
+    }
+    function CURRENTcheck($userID)
+    {
+        $pdo=pdosqlConnect();
+	    $query="select * from user where userID='$userID' and current=1";
+	    $st = $pdo->prepare($query);
+	    $st->execute();
+	    $st->setFetchMode(PDO::FETCH_ASSOC);
+	    $res = $st->fetchAll();
+        $st=null;$pdo = null;
+
+        if($res !=null)
+        {
+            return true;
+        }
+        else
+        {
+            return false;
+        }
+    }
+   
+    /*
     function removeUser($req)
     {
         $pdo=pdosqlConnect();
@@ -391,6 +399,19 @@ ini_set("display_errors", 1);
                 return "false";
             }
         }
-        
     }
+*/
+ /*function users()
+    {
+        $pdo = pdoSqlConnect();
+        $query = "SELECT * FROM user WHERE current='0'";
 
+        $st = $pdo->prepare($query);
+        $st->execute();
+        $st->setFetchMode(PDO::FETCH_ASSOC);
+        $res = $st->fetchAll();
+
+        $st=null;$pdo = null;
+
+        return $res;
+    }*/
