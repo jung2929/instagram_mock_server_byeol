@@ -1,13 +1,34 @@
 <?php
 error_reporting(E_ALL);
 ini_set("display_errors", 1);
-    function postlist()
+    function pdoSqlConnect()
     {
+        try 
+        {        }
+         catch (Exception $e)
+        {
+            echo $e->getMessage();
+        }
+    }
+    function postlist
+{
         $pdo = pdoSqlConnect();
-        $query = "SELECT * FROM QnA order by date desc;";
-
+        $query = "SELECT * FROM post order by date desc limit 10;";
         $st = $pdo->prepare($query);
         $st->execute();
+        $st->setFetchMode(PDO::FETCH_ASSOC);
+        $res = $st->fetchAll();
+
+        $st=null;$pdo = null;
+
+        return $res;
+    }
+    function userInfo($userId)
+    {
+        $pdo = pdoSqlConnect();
+        $query = "select name,user_id,introduction,profileImage from user where user_id = ? ";
+        $st = $pdo->prepare($query);
+        $st->execute([$userId]);
         $st->setFetchMode(PDO::FETCH_ASSOC);
         $res = $st->fetchAll();
 
@@ -29,14 +50,13 @@ ini_set("display_errors", 1);
     }
     function get_id($email)
     {
-        $pdo=pdoSqlConnect();
-        $query="select user_id from user where email= '$email' ";
-        $st = $pdo->prepare($query);
-        $st->execute();
-        $st->setFetchMode(PDO::FETCH_ASSOC);
-        $res=$st->fetchAll();
+        $pdo=pdosqlConnect();
+	    $query="select user_id from user where email = ? ";
+	    $st = $pdo->prepare($query);
+	    $st->execute([$email]);
+	    $st->setFetchMode(PDO::FETCH_ASSOC);
+	    $res = $st->fetchAll();
         $st=null;$pdo = null;
-        
         return $res[0]['user_id'];
     }
     function following($my_id,$friend_id)
@@ -84,13 +104,13 @@ ini_set("display_errors", 1);
     {
         $pdo=pdoSqlConnect();
         $user_id=get_id($data);
-        echo $user_id;
         $query="select my_id from following where following= ? ";
         $st=$pdo->prepare($query);
         $st->execute([$user_id]);
         $st->setFetchMode(PDO::FETCH_ASSOC);
         $res=$st->fetchAll();
         $st=null;$pdo = null;
+
         return $res;
     }
     function isValidUser($user)
@@ -118,17 +138,7 @@ ini_set("display_errors", 1);
 
         return $res;
     }
-    function view_recomment($questionNumber)
-    {
-        $pdo=pdosqlConnect();
-        $query="select * from comment left outer join recomment on comment.comment_number =recomment.comment_number where comment.question_number='$questionNumber'";
-        $st = $pdo->prepare($query);
-	    $st->execute();
-        $st->setFetchMode(PDO::FETCH_ASSOC);
-        $res=$st->fetchAll();
-        $st=null;$pdo = null;
-        return $res;
-    }
+   
     function IDcheck($id)
     {
         $pdo=pdosqlConnect();
@@ -148,11 +158,29 @@ ini_set("display_errors", 1);
             return true;
         }
     }
-  
+    function emailCheck($email)
+    {
+        $pdo=pdosqlConnect();
+	    $query="select * from user where email= ? ";
+	    $st = $pdo->prepare($query);
+	    $st->execute([$email]);
+	    $st->setFetchMode(PDO::FETCH_ASSOC);
+	    $res = $st->fetchAll();
+        $st=null;$pdo = null;
+
+        if($res !=null)
+        {
+            return false;
+        }
+        else
+        {
+            return true;
+        }
+    }
     function POSTcheck($question_number)
     {
         $pdo=pdosqlConnect();
-	    $query="select * from QnA where question_number='$question_number'";
+	    $query="select * from post where postNumber='$question_number'";
 	    $st = $pdo->prepare($query);
 	    $st->execute();
 	    $st->setFetchMode(PDO::FETCH_ASSOC);
@@ -177,33 +205,32 @@ ini_set("display_errors", 1);
         $name=$req->name;
         $email=$req->email;
         $introduction=$req->introduction;
-        
+
         $check=IDcheck($id);
 
-        if(!$check)
-        {
-            return false;
-        }
-        else
-        {
-                $sql="insert into user (user_id,user_password,name,email,introduction) values ('$id','$password','$name','$email','$introduction')";
+            if(!$check)
+            {
+                return false;
+            }
+            else
+            {
+                $sql="insert into user (user_id,user_password,name,email,introduction) values ( ? , ? , ? , ? ,? )";
                 $sr=$pdo->prepare($sql);
-                $sr->execute();
+                $sr->execute([$id,$password,$name,$email,$introduction]);
                 $sr=null;$pdo = null;
                 return true;
-        }
+            }
     }
     function write_action($req,$data)
     {
         $pdo=pdosqlConnect();
 
         $content=$req->content;
-        $id=$data->userID;
-        $password=$req->password;
-
-        $query="insert into QnA (question_number,content,id,password) values (null,'$content','$id','$password')";
+        $URL=$req->url;
+        $id=get_id($data->user_id);
+        $query="insert into post (content,writer,picture) values ( ? , ? , ? )";
         $st = $pdo->prepare($query);
-	    $st->execute();
+	    $st->execute([$content,$id,$URL]);
 	    $res = $st;
         $st=null;
         $pdo = null;
@@ -217,79 +244,29 @@ ini_set("display_errors", 1);
             return false;
         }
     }
-    function create_comment($req,$data)
+    function create_comment($req,$user_id)
     {
         $pdo=pdosqlConnect();
+        $commentContent=$req->comment_content;
+        $postNumber=$req->post_number;
+        $commentId=get_id($user_id);
 
-        $comment_content=$req->comment_content;
-        $question_number=$req->question_number;
-        $commentid=$data->userID;
-        $exist=POSTcheck($question_number);
-
-        if(strlen($comment_content)==0)
-        {
-            return "NO_CONTENT";
-        }
-
-        if($exist==true)
-        {
-            $query="insert into comment (question_number,comment_content,commentid,comment_number) values ('$question_number','$comment_content','$commentid',null)";
+            $query="insert into comment (postNumber,commentContent,commentId) values (?,?,?)";
             $st = $pdo->prepare($query);
-            $st->execute();
+            $st->execute([$postNumber,$commentContent,$commentId]);
             $res = $st;
-            $st=null;
-            $pdo = null;
+            $st=null;$pdo = null;
 
             if($res!=null)
             {
-                return "true";
+                return true;
             }
             else
             {
-                return "false";
+                return false;
             }
-        }
-        else
-        {
-            return "NO_POST";
-        } 
     }
-    function create_recomment($req,$data)
-    {
-        $pdo=pdosqlConnect();
-
-        $recomment_content=$req->recomment_content;
-        $comment_number=$req->comment_number;
-        $question_number=$req->question_number;
-        $recommentid=$data->userID;
-
-        $exist=POSTcheck($question_number);
-    
-        if($exist==true)
-        {
-            $query="insert into recomment (comment_number,recomment_content,recomment_id) values ('$comment_number','$recomment_content','$recommentid')";
-            echo $query;
-            $st = $pdo->prepare($query);
-            $st->execute();
-            $res = $st;
-            $st=null;
-            $pdo = null;
-
-            if($res!=null)
-            {
-                return "true";
-            }
-            else
-            {
-                return "false";
-            }
-        }
-        else
-        {
-            return "NO_POST";
-        }
-    }
-    
+   
     function user_PWcheck($userID,$password)
     {
         $pdo=pdosqlConnect();
@@ -328,7 +305,108 @@ ini_set("display_errors", 1);
             return false;
         }
     }
-   
+    function URL($url)
+    {
+        $pdo=pdosqlConnect();
+	    $query="insert into post where ";
+	    $st = $pdo->prepare($query);
+	    $st->execute();
+	    $st->setFetchMode(PDO::FETCH_ASSOC);
+	    $res = $st->fetchAll();
+        $st=null;$pdo = null;
+
+        if($res !=null)
+        {
+            return true;
+        }
+        else
+        {
+            return false;
+        }
+    }
+    function likeNum($postNumber)
+    {
+        $pdo=pdosqlConnect();
+	    $query="select likes from post where postNumber= ? ";
+	    $st = $pdo->prepare($query);
+	    $st->execute([$postNumber]);
+	    $st->setFetchMode(PDO::FETCH_ASSOC);
+	    $res = $st->fetchAll();
+        $st=null;$pdo = null;
+
+        return $res[0]['likes'];
+    }
+    function likes($postNumber,$like)
+    {
+        $pdo=pdosqlConnect();
+        $exist=POSTcheck($postNumber);
+           if($exist==true)
+        {
+            $query="UPDATE post set likes=$like where postNumber = ? ";
+            $st = $pdo->prepare($query);
+            $st->execute([$postNumber]);
+            $res = $st;
+            $st=null;$pdo = null;
+
+            if($res!=null)
+            {
+                return true;
+            }
+            else
+            {
+                return false;
+            }
+        }
+        else
+        {
+            return false;
+        } 
+    }
+
+    function writerCheck($postNumber)
+    {
+        $pdo=pdosqlConnect();
+	    $query="select writer from post where postNumber= ? ";
+	    $st = $pdo->prepare($query);
+	    $st->execute([$postNumber]);
+	    $st->setFetchMode(PDO::FETCH_ASSOC);
+	    $res = $st->fetchAll();
+        $st=null;$pdo = null;
+        return $res[0]['writer'];
+    }
+  function changeContent($content,$postNumber)
+  {
+    $pdo=pdosqlConnect();
+    $query="update post set content='$content' where postNumber='$postNumber'";
+    $st = $pdo->prepare($query);
+    $st->execute();
+    $res = $st;
+    $st=null;
+    $pdo = null;
+
+    if($res!=null)
+    {
+        return true;
+    }
+    else
+    {
+        return false;
+    }
+  }
+  function profile($userId)
+  {
+    $pdo=pdosqlConnect();
+    $query="select * from post where writer = ?";
+    $st = $pdo->prepare($query);
+    $st->execute([$userId]);
+    $st->setFetchMode(PDO::FETCH_ASSOC);
+	$res = $st->fetchAll();
+    $st=null;
+    $pdo = null;
+
+    return $res;
+  }
+
     /*
     function removeUser($req)
     {
@@ -399,6 +477,52 @@ ini_set("display_errors", 1);
                 return "false";
             }
         }
+    }
+     function create_recomment($req,$data)
+    {
+        $pdo=pdosqlConnect();
+
+        $recomment_content=$req->recomment_content;
+        $comment_number=$req->comment_number;
+        $question_number=$req->question_number;
+        $recommentid=$data->userID;
+
+        $exist=POSTcheck($question_number);
+    
+        if($exist==true)
+        {
+            $query="insert into recomment (comment_number,recomment_content,recomment_id) values ('$comment_number','$recomment_content','$recommentid')";
+            echo $query;
+            $st = $pdo->prepare($query);
+            $st->execute();
+            $res = $st;
+            $st=null;
+            $pdo = null;
+
+            if($res!=null)
+            {
+                return "true";
+            }
+            else
+            {
+                return "false";
+            }
+        }
+        else
+        {
+            return "NO_POST";
+        }
+    }
+     function view_recomment($questionNumber)
+    {
+        $pdo=pdosqlConnect();
+        $query="select * from comment left outer join recomment on comment.comment_number =recomment.comment_number where comment.question_number='$questionNumber'";
+        $st = $pdo->prepare($query);
+	    $st->execute();
+        $st->setFetchMode(PDO::FETCH_ASSOC);
+        $res=$st->fetchAll();
+        $st=null;$pdo = null;
+        return $res;
     }
 */
  /*function users()

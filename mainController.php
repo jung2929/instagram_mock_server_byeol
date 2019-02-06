@@ -33,13 +33,36 @@ ini_set("display_errors", 1);
             * API Name : 피드 조회 API
             * 마지막 수정 날짜 : 18.02.01
             */
-            case "timeline":
+            case "instagramFeed":
                 http_response_code(200);
                 $jwt=$_SERVER['HTTP_X_ACCESS_TOKEN'];
-                $res->result = postlist();
-                $res->code = 100;
-                $res->message = "성공";
-
+                $valid=isValidHeader($jwt,'JWT_SECRET_KEY');
+                
+                if($valid!=null)
+                {
+                    $data=getDataByJWToken($jwt,'JWT_SECRET_KEY');
+                    $userId=get_id($data->user_id);
+                    $res->data = postlist();
+                    
+                    if($res->data==null)
+                    {
+                        $res->result=false;
+                        $res->code=401;
+                        $res->message="새로운 피드 없음";
+                    }
+                    else
+                    {
+                        $res->result=true;
+                        $res->code = 100;
+                        $res->message = "성공";
+                    }
+                }
+                else
+                {
+                    $res->result=false;
+                    $res->code=401;
+                    $res->message="로그인 필요";
+                }
                 echo json_encode($res, JSON_NUMERIC_CHECK);
 		        break;
 
@@ -49,7 +72,7 @@ ini_set("display_errors", 1);
             * 마지막 수정 날짜 : 18.02.01
             */
 
-            case "followingList":
+            case "following":
                 http_response_code(200);
                 $jwt=$_SERVER['HTTP_X_ACCESS_TOKEN'];
                 $valid=isValidHeader($jwt,'JWT_SECRET_KEY');
@@ -57,7 +80,7 @@ ini_set("display_errors", 1);
                 if($valid!=null)
                 {
                     $data=getDataByJWToken($jwt,'JWT_SECRET_KEY');
-                    $res->result=following_list($data->user_id);
+                    $res->result=followingList($data->user_id);
                     if($res->result!=null)
                     {
                         $res->code=100;
@@ -87,7 +110,7 @@ ini_set("display_errors", 1);
             * API Name : 팔로워 리스트 API
             * 마지막 수정 날짜 : 18.02.01
             */
-                case "follower_list":
+                case "follower":
                 http_response_code(200);
                 $jwt=$_SERVER['HTTP_X_ACCESS_TOKEN'];
                 $valid=isValidHeader($jwt,'JWT_SECRET_KEY');
@@ -192,8 +215,7 @@ ini_set("display_errors", 1);
             $name=$req->name;
             $email=$req->email;
             $introduction=$req->introduction;
-
-            if($id==NULL||$name==NULL||$password==NULL||$email==null)
+            if($id==NULL||$name==NULL||$password==NULL||$email==NULL)
             {
                 $res->result=false;
                 $res->code=400;
@@ -216,6 +238,12 @@ ini_set("display_errors", 1);
                 $res->result=false;
                 $res->code=403;
                 $res->message="이메일 형식이 잘못되었습니다";
+            }
+            else if(!emailCheck($email))
+            {
+                $res->result=false;
+                $res->code=403;
+                $res->message="중복되는 이메일 존재";
             }
             else
             {
@@ -241,11 +269,10 @@ ini_set("display_errors", 1);
             * 마지막 수정 날짜 : 18.02.01
             */
 
-        case "following":
+        case "follow":
             http_response_code(200);
 
             $jwt=$_SERVER['HTTP_X_ACCESS_TOKEN'];
-
             $valid=isValidHeader($jwt,'JWT_SECRET_KEY');
             
             if($valid!=false)
@@ -283,36 +310,31 @@ ini_set("display_errors", 1);
             * 마지막 수정 날짜 : 18.02.01
             */
 
-        case "write":
+        case "posts":
             http_response_code(200);
             $jwt=$_SERVER['HTTP_X_ACCESS_TOKEN'];
-            $valid=isValidHeader($jwt,JWT_SECRET_KEY);
+            $valid=isValidHeader($jwt,'JWT_SECRET_KEY');
             if($valid!=false)
             {
-                if($req->content==null)
+                $data=getDataByJWToken($jwt,'JWT_SECRET_KEY');
+                if($req->content==null||$req->url==null)
                 {
                     $res->result=false;
                     $res->code=401;
-                    $res->message="글 내용을 입력해주세요";
-                }
-                else if($req->password==null)
-                {
-                    $res->result=false;
-                    $res->code=403;
-                    $res->message="글 비밀번호를 입력해주세요";
+                    $res->message="모두 입력해주세요";
                 }
                 else
                 {
                     $data = getDataByJWToken($jwt,JWT_SECRET_KEY);
-                    $res->result=write_action($req,$data);  
-                    if($res->result==true) 
+                    $res->result=write_action($req,$data);
+                    if($res->result==true)
                     {
-                        $res->code=101;
+                        $res->code=100;
                         $res->message="글쓰기를 성공했습니다";
                     }
                     else
                     {
-                        $res->code=404;
+                        $res->code=400;
                         $res->message="글쓰기 실패";
                     }
                 }
@@ -325,8 +347,6 @@ ini_set("display_errors", 1);
             echo json_encode($res,JSON_NUMERIC_CHECK);
             break;
 
-
-
              /*
             * API No. 8
             * API Name : 댓글작성 API
@@ -335,44 +355,39 @@ ini_set("display_errors", 1);
         case "comment":
             http_response_code(200);
             $jwt=$_SERVER['HTTP_X_ACCESS_TOKEN'];
-            $valid=isValidHeader($jwt,JWT_SECRET_KEY);
+            $valid=isValidHeader($jwt,'JWT_SECRET_KEY');
           
             if($valid!=false)
             {
-                $data = getDataByJWToken($jwt,JWT_SECRET_KEY);
-
-                $res->result=create_comment($req,$data);  
-
-                switch($res->result)
+                if($req->comment_content==null)
                 {
-                    case "true":
+                    $res->result=false;
+                    $res->code=400;
+                    $res->message="댓글 작성 실패";
+                }
+                else
+                {
+                    $post_number=$req->post_number;
+                    $exist=POSTcheck($post_number);
+                    if($exist)
                     {
-                    $res->code=102;
-                    $res->message="댓글 작성을 성공했습니다";
-                    break;
+                        $data = getDataByJWToken($jwt,'JWT_SECRET_KEY');
+                        $res->result=create_comment($req,$data->user_id);  
+                        $res->code=100;
+                        $res->message="댓글 작성 완료";
                     }
-                    case "false":
+                    else
                     {
-                    $res->code=405;
-                    $res->message="댓글 작성을 실패했습니다";
-                    break;
+                        $res->result=false;
+                        $res->code=400;
+                        $res->message="존재하지 않는 게시물임";
                     }
-                    case "NO_POST":
-                    {
-                    $res->code=406;
-                    $res->message="존재하지 않는 게시글입니다";
-                    break;
-                    }
-                    case "NO_CONTENT":
-                    {
-                        $res->code=407;
-                        $res->message="내용을 입력해주세요";
-                    }
+                    
                 }
             }
             else
             {
-                $res->code=402;
+                $res->code=401;
                 $res->message="로그인을 먼저 해주세요";
             }
             echo json_encode($res,JSON_NUMERIC_CHECK);
@@ -392,36 +407,6 @@ ini_set("display_errors", 1);
             if($valid!=false)
             {
                 $data = getDataByJWToken($jwt,JWT_SECRET_KEY);
-                
-                $res->result=create_recomment($req,$data);  
-
-                switch($res->result)
-                {
-                    case "true":
-                    {
-                        $res->code=102;
-                        $res->message="댓글 작성을 성공했습니다";
-                        break;
-                    }
-                    case "false":
-                    {
-                        $res->code=405;
-                        $res->message="댓글 작성을 실패했습니다";
-                        break;
-                    }
-                    case "NO_POST":
-                    {
-                        $res->code=406;
-                        $res->message="존재하지 않는 게시글입니다";
-                        break;
-                    }
-                    case "NO_CONTENT":
-                    {
-                        $res->code=407;
-                        $res->message="내용을 입력해주세요";
-                        break;
-                    }
-                    }
             }
             else
             {
@@ -433,11 +418,11 @@ ini_set("display_errors", 1);
 
             /*
             * API No. 10
-            * API Name : 프로필조회 API
+            * API Name : 프로필수정 API
             * 마지막 수정 날짜 : 18.02.01
             */
 
-            case "myprofile":
+            case "profile":
                 http_response_code(200);
                 $jwt=$_SERVER['HTTP_X_ACCESS_TOKEN'];
                 $valid=isValidHeader($jwt,JWT_SECRET_KEY);
@@ -446,7 +431,7 @@ ini_set("display_errors", 1);
                 if($valid!=null)
                 {
                     $data=getDataByJWToken($jwt,JWT_SECRET_KEY);
-                    $res->result=profile_fix($data,$req);
+                    $res->result=profile($req);
 
                     if($res->result!=null)
                     {
@@ -457,7 +442,7 @@ ini_set("display_errors", 1);
                     {
                         $res->result=false;
                         $res->code=400;
-                        $res->message="수정 실패";
+                        $res->message="";
                     }
                 }
                 else
@@ -468,7 +453,208 @@ ini_set("display_errors", 1);
                 }
                 echo json_encode($res, JSON_NUMERIC_CHECK);
                 break;
-        
+
+
+            /*
+            * API No. 11
+            * API Name : 파일업로드 API
+            * 마지막 수정 날짜 : 18.02.06
+            */
+
+                case "image":
+                http_response_code(200);
+                $jwt=$_SERVER['HTTP_X_ACCESS_TOKEN'];
+                $valid=isValidHeader($jwt,'JWT_SECRET_KEY');
+                
+                if($valid!=null)
+                {
+                    $success=fileUpload();
+                    if($success)
+                   {
+                        $res->result=$success;
+                        $res->code=100;
+                        $res->message="파일 업로드 성공";
+                    }
+                    else
+                    {
+                        $res->result=false;
+                        $res->code=400;
+                        $res->message="파일 업로드 실패";
+                    }
+                }
+                else
+                {
+                    $res->result=false;
+                    $res->code=401;
+                    $res->message="로그인 필요";
+                }
+                echo json_encode($res,JSON_NUMERIC_CHECK);
+                break;
+
+
+            /*
+            * API No. 12
+            * API Name : 좋아요 API
+            * 마지막 수정 날짜 : 18.02.06
+            */
+
+                case "likes":
+                http_response_code(200);
+                $jwt=$_SERVER['HTTP_X_ACCESS_TOKEN'];
+                $valid=isValidHeader($jwt,'JWT_SECRET_KEY');
+
+                if($valid!=null)
+                {
+                    $postNumber=$req->post_number;
+                    $like=likeNum($postNumber);
+                    $likePlus=$like+1;
+                    $success=likes($postNumber,$likePlus);
+                    if($success)
+                    {
+
+                        $res->result=$success;
+                        $res->code=100;
+                        $res->message="좋아요 성공";
+                    }
+                    else
+                    {
+                        $res->result=false;
+                        $res->code=400;
+                        $res->message="좋아요 실패";
+                    }
+                }
+                else
+                {
+                    $res->result=false;
+                    $res->code=401;
+                    $res->message="로그인 필요";
+                }
+                echo json_encode($res,JSON_NUMERIC_CHECK);
+                break;
+
+            /*
+            * API No. 13
+            * API Name : 유저정보불러오기 API
+            * 마지막 수정 날짜 : 18.02.06
+            */
+            case "userInfo":
+                http_response_code(200);
+                $userId=$vars["user_id"];
+            
+                if($res->data=userInfo($userId))
+                {
+                    $res->result=true;
+                    $res->code=100;
+                    $res->message="불러오기 성공";
+                }
+                else
+                {
+                    $res->result=false;
+                    $res->code=400;
+                    $res->message="불러오기 실패";
+                }
+                echo json_encode($res,JSON_NUMERIC_CHECK);
+                break;
+
+
+
+            /*
+            * API No. 14
+            * API Name : 게시글 수정 API
+            * 마지막 수정 날짜 : 18.02.06
+            */
+
+            case "post":
+                http_response_code(200);
+                $jwt=$_SERVER['HTTP_X_ACCESS_TOKEN'];
+                $valid=isValidHeader($jwt,'JWT_SECRET_KEY');
+
+                if($valid!=null)
+                {
+
+                    if($req->content==NULL)
+                    {
+                        $res->result=false;
+                        $res->code=400;
+                        $res->message="내용을 입력해주세요";
+                    }
+                    else
+                    {
+                        $data = getDataByJWToken($jwt,'JWT_SECRET_KEY');
+                        $post_number=$req->post_number;
+                        $content=$req->content;
+                        $exist=POSTcheck($post_number);
+                        $qualify=writerCheck($post_number);
+                        $id=get_id($data->user_id);
+                        if($qualify==$id)
+                        {
+                            if($exist)
+                            {
+                                
+                                $res->result=changeContent($content,$post_number);  
+                                $res->code=100;
+                                $res->message="수정 완료";
+                            }
+                            else
+                            {
+                                $res->result=false;
+                                $res->code=402;
+                                $res->message="존재하지 않는 게시물임";
+                            }
+                        }
+                        else
+                        {
+                            $res->result=false;
+                            $res->code=403;
+                            $res->message="권한이 없습니다";
+                        }
+                    }
+                }
+                else
+                {
+                    $res->result=false;
+                    $res->code=401;
+                    $res->message="로그인 안함";
+                }
+                echo json_encode($res,JSON_NUMERIC_CHECK);
+                break;
+
+
+            /*
+            * API No. 15
+            * API Name : 프로필 조회 API
+            * 마지막 수정 날짜 : 18.02.06
+            */
+            case "profilePage":
+            http_response_code(200);
+            $jwt=$_SERVER['HTTP_X_ACCESS_TOKEN'];
+            $valid=isValidHeader($jwt,'JWT_SECRET_KEY');
+            if($valid!=null)
+            {
+                $userId=$req->user_id;
+
+                if( $res->user=userInfo($userId))
+                {
+                    $res->post=profile($userId);
+                    $res->result=true;
+                    $res->code=100;
+                    $res->message="조회 성공";
+                }
+                else
+                {
+                    $res->result=false;
+                    $res->code=400;
+                    $res->message="조회 실패";
+                }
+            }
+            else
+            {
+                $res->result=false;
+                $res->code=401;
+                $res->message="로그인 안함";
+            }
+            echo json_encode($res,JSON_NUMERIC_CHECK);
+            break;
 
 /*        case "removeUser":
                 http_response_code(200);

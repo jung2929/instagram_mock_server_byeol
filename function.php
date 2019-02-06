@@ -180,7 +180,7 @@ ini_set("display_errors", 1);
 
     function addErrorLogs($errorLogs, $res, $body){
         if(isset($_SERVER['HTTP_X_ACCESS_TOKEN']))
-            $req["JWT"] = getDataByJWToken($_SERVER['HTTP_X_ACCESS_TOKEN'], JWT_SECRET_KEY);
+            $req["JWT"] = getDataByJWToken($_SERVER['HTTP_X_ACCESS_TOKEN'], 'JWT_SECRET_KEY');
         $req["GET"] = $_GET;
         $req["BODY"] = $body;
         $req["REQUEST_METHOD"] = $_SERVER["REQUEST_METHOD"];
@@ -214,4 +214,20 @@ ini_set("display_errors", 1);
 //        fpassthru($fp);
         fclose($fp);
     }
+    function fileUpload()
+    {
+        $uploaddir = '/var/www/html/rest-api-test/upload/';
+        $uploadfile = $uploaddir . basename($_FILES['userfile']['name']);
 
+        if (move_uploaded_file($_FILES['userfile']['tmp_name'], $uploadfile)) 
+        {
+            $url="http://www.chanbyeol.com/upload/".basename($_FILES['userfile']['name']);
+            return $url;
+        }
+        else 
+        {
+            return false;
+        }
+        
+    }
+   
