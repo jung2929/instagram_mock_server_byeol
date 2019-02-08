@@ -37,12 +37,12 @@ ini_set("display_errors", 1);
                 http_response_code(200);
                 $jwt=$_SERVER['HTTP_X_ACCESS_TOKEN'];
                 $valid=isValidHeader($jwt,'JWT_SECRET_KEY');
-                
+                $feedNum=$vars["feedNum"];
                 if($valid!=null)
                 {
                     $data=getDataByJWToken($jwt,'JWT_SECRET_KEY');
                     $userId=get_id($data->user_id);
-                    $res->data = postlist();
+                    $res->data = postlist($userId,$feedNum);
                     
                     if($res->data==null)
                     {
@@ -729,6 +729,48 @@ ini_set("display_errors", 1);
             echo json_encode($res,JSON_NUMERIC_CHECK);
             break;
 
+
+
+
+
+            /*  
+            * API No. 17
+            * API Name : 아이디 리턴 API
+            * 마지막 수정 날짜 : 18.02.08
+            */
+
+            case "userId":
+            http_response_code(200);
+            $jwt=$_SERVER['HTTP_X_ACCESS_TOKEN'];
+            $valid=isValidHeader($jwt,'JWT_SECRET_KEY');
+            if($valid!=null)
+            {
+                $data=getDataByJWToken($jwt,'JWT_SECRET_KEY');
+                $id=get_id($data->user_id);
+                if($id)
+                {
+                    $res->id=$id;
+                    $res->result=true;
+                    $res->code=100;
+                    $res->message="성공";
+                }
+                else
+                {
+                    $res->id=$id;
+                    $res->result=false;
+                    $res->code=400;
+                    $res->message="실패";
+                }
+            }
+            else
+            {
+                $res->id=$id;
+                $res->result=false;
+                $res->code=401;
+                $res->message="로그인 안함";
+            }
+            echo json_encode($res,JSON_NUMERIC_CHECK);
+            break;
 
 /*        case "removeUser":
                 http_response_code(200);

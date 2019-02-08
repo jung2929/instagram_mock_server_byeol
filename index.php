@@ -17,7 +17,7 @@ ini_set('default_charset', 'utf8mb4');
 $dispatcher = FastRoute\simpleDispatcher(function(FastRoute\RouteCollector $r) {
     //Main Server API
     $r->addRoute('GET', '/', 'index');
-    $r->addRoute('GET', '/instagramFeed', 'instagramFeed');
+    $r->addRoute('GET', '/instagramFeed/{feedNum:\d+}', 'instagramFeed');
     $r->addRoute('GET', '/view/{questionNumber:\d+}','view');
     $r->addRoute('GET', '/following','following');
     $r->addRoute('GET', '/follower','follower');
@@ -35,6 +35,7 @@ $dispatcher = FastRoute\simpleDispatcher(function(FastRoute\RouteCollector $r) {
     $r->addRoute('PUT','/profile','profile');
     $r->addRoute('PUT','/post','post');
     $r->addRoute('DELETE','/Post','Post');
+    $r->addRoute('GET','/userId','userId');
 //    $r->addRoute('PUT','/removeUser','removeUser');
 //    $r->addRoute('PUT','/reviveUser','reviveUser');
 //    $r->addRoute('GET', '/logs/error', 'ERROR_LOGS');

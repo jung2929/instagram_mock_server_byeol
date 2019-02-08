@@ -5,16 +5,17 @@ ini_set("display_errors", 1);
     {
         try 
         {
+
         }
          catch (Exception $e)
         {
             echo $e->getMessage();
         }
     }
-    function postlist() 
+    function postlist($userId,$feedNum) 
     {
         $pdo = pdoSqlConnect();
-        $query = "select picture,content,writer,date,likes from post right join following on post.writer=following order by date desc limit 10;";
+        $query = "select post.postNumber,post.picture,post.content,post.writer,post.date,post.likes from following left join post on post.writer=following.following where my_id='$userId' order by date desc limit $feedNum,10";
         $st = $pdo->prepare($query);
         $st->execute();
         $st->setFetchMode(PDO::FETCH_ASSOC);
@@ -410,7 +411,7 @@ ini_set("display_errors", 1);
   function profile($userId)
   {
     $pdo=pdosqlConnect();
-    $query="select * from post where writer = ?";
+    $query="select * from post where writer = ? order by date desc";
     $st = $pdo->prepare($query);
     $st->execute([$userId]);
     $st->setFetchMode(PDO::FETCH_ASSOC);
