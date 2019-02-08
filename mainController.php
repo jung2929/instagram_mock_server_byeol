@@ -201,7 +201,7 @@ ini_set("display_errors", 1);
         
 
 
-             /*
+            /*
             * API No. 5
             * API Name : 회원가입 API
             * 마지막 수정 날짜 : 18.02.01
@@ -280,20 +280,19 @@ ini_set("display_errors", 1);
                 $data=getDataByJWToken($jwt,'JWT_SECRET_KEY');
                 $my_id=get_id($data->user_id);
                 $friend_id=$req->friend_id;
-                $res->result=following($my_id,$friend_id);
+                    $res->result=following($my_id,$friend_id);
                 
-                if($res->result!=false)
-                {
-                    $res->code=100;
-                    $res->message="팔로우 성공";
-                }
-                else
-                {
-                    $res->result=false;
-                    $res->code=400;
-                    $res->message="팔로우 실패";
-                }
-
+                    if($res->result!=false)
+                    {
+                        $res->code=100;
+                        $res->message="팔로우 성공";
+                    }
+                    else
+                    {
+                        $res->result=false;
+                        $res->code=400;
+                        $res->message="팔로우 실패";
+                    }
             }
             else
             {
@@ -347,7 +346,7 @@ ini_set("display_errors", 1);
             echo json_encode($res,JSON_NUMERIC_CHECK);
             break;
 
-             /*
+            /*
             * API No. 8
             * API Name : 댓글작성 API
             * 마지막 수정 날짜 : 18.02.01
@@ -393,7 +392,7 @@ ini_set("display_errors", 1);
             echo json_encode($res,JSON_NUMERIC_CHECK);
             break;
 
-             /*
+            /*
             * API No. 9
             * API Name : 대댓글작성 API
             * 마지막 수정 날짜 : 18.02.01
@@ -425,24 +424,27 @@ ini_set("display_errors", 1);
             case "profile":
                 http_response_code(200);
                 $jwt=$_SERVER['HTTP_X_ACCESS_TOKEN'];
-                $valid=isValidHeader($jwt,JWT_SECRET_KEY);
-                
-
+                $valid=isValidHeader($jwt,'JWT_SECRET_KEY');
                 if($valid!=null)
                 {
-                    $data=getDataByJWToken($jwt,JWT_SECRET_KEY);
-                    $res->result=profile($req);
-
+                    if($req->name==NULL||$req->introduction==NULL||$req->image==NULL)
+                    {
+                        $res->result=false;
+                        $res->code=400;
+                        $res->message="수정 실패";
+                    }
+                    $data=getDataByJWToken($jwt,'JWT_SECRET_KEY');
+                    $res->result=changeProfile($req,$data);
                     if($res->result!=null)
                     {
                         $res->code=100;
-                        $res->message="수정 성공";
+                        $res->message="수정 완료";
                     }
                     else
                     {
                         $res->result=false;
                         $res->code=400;
-                        $res->message="";
+                        $res->message="수정 실패";
                     }
                 }
                 else
@@ -505,23 +507,34 @@ ini_set("display_errors", 1);
 
                 if($valid!=null)
                 {
-                    $postNumber=$req->post_number;
-                    $like=likeNum($postNumber);
-                    $likePlus=$like+1;
-                    $success=likes($postNumber,$likePlus);
-                    if($success)
+                    $postNumber=$req->post_number; 
+                    $data=getDataByJWToken($jwt,'JWT_SECRET_KEY');
+                    $check=likeCheck($postNumber,$data->user_id);
+                    if(!$check)
                     {
-
-                        $res->result=$success;
-                        $res->code=100;
-                        $res->message="좋아요 성공";
+                        $like=likeNum($postNumber);
+                        $likePlus=$like+1;
+                        $success=likes($postNumber,$likePlus);
+                        if($success)
+                        {
+                            upLike($postNumber,$data->user_id);
+                            $res->result=$success;
+                            $res->code=100;
+                            $res->message="좋아요 성공";
+                        }
+                        else
+                        {
+                            $res->result=false;
+                            $res->code=400;
+                            $res->message="좋아요 실패";
+                        }
                     }
                     else
-                    {
-                        $res->result=false;
-                        $res->code=400;
-                        $res->message="좋아요 실패";
-                    }
+                        {
+                            $res->result=false;
+                            $res->code=400;
+                            $res->message="좋아요 실패";
+                        }
                 }
                 else
                 {
@@ -534,7 +547,7 @@ ini_set("display_errors", 1);
 
             /*
             * API No. 13
-            * API Name : 유저정보불러오기 API
+            * API Name : 유저정보 조회 API
             * 마지막 수정 날짜 : 18.02.06
             */
             case "userInfo":
@@ -631,9 +644,9 @@ ini_set("display_errors", 1);
             $valid=isValidHeader($jwt,'JWT_SECRET_KEY');
             if($valid!=null)
             {
-                $userId=$req->user_id;
+                $userId=$vars["user_id"];
 
-                if( $res->user=userInfo($userId))
+                if($res->user=userInfo($userId))
                 {
                     $res->post=profile($userId);
                     $res->result=true;
@@ -655,6 +668,67 @@ ini_set("display_errors", 1);
             }
             echo json_encode($res,JSON_NUMERIC_CHECK);
             break;
+
+
+
+            /*  
+            * API No. 16
+            * API Name : 게시물 삭제 API
+            * 마지막 수정 날짜 : 18.02.07
+            */
+            case "Post":
+            http_response_code(200);
+            $jwt=$_SERVER['HTTP_X_ACCESS_TOKEN'];
+            $valid=isValidHeader($jwt,'JWT_SECRET_KEY');
+          
+            if($valid!=false)
+            {
+                if($req->post_number==null)
+                {
+                    $res->result=false;
+                    $res->code=400;
+                    $res->message="게시물 삭제 실패";
+                }
+                else
+                {
+                    $data = getDataByJWToken($jwt,'JWT_SECRET_KEY');
+                    $post_number=$req->post_number;
+                    $exist=POSTcheck($post_number);
+                    $qualify=writerCheck($post_number);
+                    $id=get_id($data->user_id);
+                    if($exist)
+                    {
+                            if($qualify==$id)
+                            {
+                                
+                                $res->result=delete_post($post_number);  
+                                $res->code=100;
+                                $res->message="삭제 완료";
+                            }
+                            else
+                            {
+                                $res->result=false;
+                                $res->code=403;
+                                $res->message="권한이 없습니다";
+                               
+                            }
+                    }
+                    else
+                    {
+                        $res->result=false;
+                        $res->code=402;
+                        $res->message="존재하지 않는 게시물임";
+                    }
+                }
+            }
+            else
+            {
+                $res->code=401;
+                $res->message="로그인을 먼저 해주세요";
+            }
+            echo json_encode($res,JSON_NUMERIC_CHECK);
+            break;
+
 
 /*        case "removeUser":
                 http_response_code(200);

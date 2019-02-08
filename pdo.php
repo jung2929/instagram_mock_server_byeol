@@ -4,16 +4,17 @@ ini_set("display_errors", 1);
     function pdoSqlConnect()
     {
         try 
-        {        }
+        {
+        }
          catch (Exception $e)
         {
             echo $e->getMessage();
         }
     }
-    function postlist
-{
+    function postlist() 
+    {
         $pdo = pdoSqlConnect();
-        $query = "SELECT * FROM post order by date desc limit 10;";
+        $query = "select picture,content,writer,date,likes from post right join following on post.writer=following order by date desc limit 10;";
         $st = $pdo->prepare($query);
         $st->execute();
         $st->setFetchMode(PDO::FETCH_ASSOC);
@@ -138,7 +139,6 @@ ini_set("display_errors", 1);
 
         return $res;
     }
-   
     function IDcheck($id)
     {
         $pdo=pdosqlConnect();
@@ -218,6 +218,7 @@ ini_set("display_errors", 1);
                 $sr=$pdo->prepare($sql);
                 $sr->execute([$id,$password,$name,$email,$introduction]);
                 $sr=null;$pdo = null;
+                following($id,$id);
                 return true;
             }
     }
@@ -305,25 +306,6 @@ ini_set("display_errors", 1);
             return false;
         }
     }
-    function URL($url)
-    {
-        $pdo=pdosqlConnect();
-	    $query="insert into post where ";
-	    $st = $pdo->prepare($query);
-	    $st->execute();
-	    $st->setFetchMode(PDO::FETCH_ASSOC);
-	    $res = $st->fetchAll();
-        $st=null;$pdo = null;
-
-        if($res !=null)
-        {
-            return true;
-        }
-        else
-        {
-            return false;
-        }
-    }
     function likeNum($postNumber)
     {
         $pdo=pdosqlConnect();
@@ -336,11 +318,43 @@ ini_set("display_errors", 1);
 
         return $res[0]['likes'];
     }
+    function upLike($postNumber,$user_id)
+    {
+        $pdo=pdosqlConnect();
+        $userId=get_id($user_id);
+	    $query="insert into likes (postNumber,user) values(?,?)";
+	    $st = $pdo->prepare($query);
+	    $st->execute([$postNumber,$userId]);
+	    $res = $st;
+        $st=null;$pdo = null;
+
+            if($res!=null)
+            {
+                return true;
+            }
+            else
+            {
+                return false;
+            }
+    }
+    function likeCheck($postNumber,$user_id)
+    {
+        $pdo=pdosqlConnect();
+        $user=get_id($user_id);
+        $query="select exists(select * from likes where user = ? and postNumber = ? )as result";
+        $st = $pdo->prepare($query);
+        $st->execute([$user,$postNumber]);
+	    $st->setFetchMode(PDO::FETCH_ASSOC);
+        $res = $st->fetchAll();
+        $st=null;$pdo=null;
+    
+	    return intval($res[0]["result"]);
+    }
     function likes($postNumber,$like)
     {
         $pdo=pdosqlConnect();
         $exist=POSTcheck($postNumber);
-           if($exist==true)
+        if($exist==true)
         {
             $query="UPDATE post set likes=$like where postNumber = ? ";
             $st = $pdo->prepare($query);
@@ -406,6 +420,64 @@ ini_set("display_errors", 1);
 
     return $res;
   }
+  function changeWriter($id,$original)
+  {
+    $pdo=pdosqlConnect();
+    $query="update post set writer='$id' where writer = '$original'";
+    $st = $pdo->prepare($query);
+    $st->execute();
+    $res = $st;
+    $st=null;$pdo = null;
+
+    if($res!=null)
+    {
+        return true;
+    }
+    else
+    {
+        return false;
+    }
+  }
+  function changeProfile($req,$data)
+  {
+    $user=$data->user_id;
+    $name=$req->name;
+    $introduction=$req->introduction;
+    $image=$req->image;
+    $pdo=pdosqlConnect();
+    $query="update user set name='$name',introduction='$introduction',profileImage='$image' where email='$user'";
+    $st = $pdo->prepare($query);
+    $st->execute();
+    $res = $st;
+    $st=null;$pdo = null;
+
+    if($res!=null)
+    {
+        return true;
+    }
+    else
+    {
+        return false;
+    }
+  }
+  function delete_post($postNumber)
+  {
+    $pdo=pdosqlConnect();
+    $query="delete from post where postNumber='$postNumber'";
+    $st = $pdo->prepare($query);
+    $st->execute();
+    $res = $st;
+    $st=null;$pdo = null;
+
+    if($res!=null)
+    {
+        return true;
+    }
+    else
+    {
+        return false;
+    }
+  } 
 
     /*
     function removeUser($req)

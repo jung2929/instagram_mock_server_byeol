@@ -31,9 +31,10 @@ $dispatcher = FastRoute\simpleDispatcher(function(FastRoute\RouteCollector $r) {
     $r->addRoute('GET','/imageAddress','imageAddress');
     $r->addRoute('POST','/likes','likes');
     $r->addRoute('GET', '/userInfo/{user_id}', 'userInfo');
-    $r->addRoute('GET', '/profilePage', 'profilePage');
+    $r->addRoute('GET', '/profilePage/{user_id}', 'profilePage');
     $r->addRoute('PUT','/profile','profile');
     $r->addRoute('PUT','/post','post');
+    $r->addRoute('DELETE','/Post','Post');
 //    $r->addRoute('PUT','/removeUser','removeUser');
 //    $r->addRoute('PUT','/reviveUser','reviveUser');
 //    $r->addRoute('GET', '/logs/error', 'ERROR_LOGS');
